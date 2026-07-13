@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 import logging
 from telegram import Update
@@ -54,10 +55,9 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
-    # ЖЕСТКАЯ ПРОВЕРКА ТОКЕНА
     if not token:
         logger.error("ОШИБКА: TELEGRAM_BOT_TOKEN НЕ НАЙДЕН В ENVIRONMENT!")
-        return 
+        sys.exit(1)  # <-- ИСПРАВЛЕНО: теперь процесс умирает корректно
 
     logger.info("Запуск приложения...")
     application = Application.builder().token(token).build()
@@ -68,5 +68,5 @@ def main() -> None:
     logger.info("БОТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-if __name__ == "__main__":
+if name == "main":
     main()
