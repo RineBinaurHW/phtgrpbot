@@ -78,10 +78,10 @@ async def main():
     logger.info("Бот запущен и опрашивает сервер Telegram...")
 
     async with application:
-    await application.start()
-    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-    # Бот будет работать, пока его не остановят. 
-    # Когда придёт сигнал остановки, он завершится без ошибки.
+       await application.start()
+       await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+       # Бот будет работать, пока его не остановят. 
+       # Когда придёт сигнал остановки, он завершится без ошибки.
 
 
 if __name__ == "__main__":
