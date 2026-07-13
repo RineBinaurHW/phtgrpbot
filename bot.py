@@ -3,6 +3,7 @@ import sys
 import random
 import logging
 import asyncio
+import signal
 from aiohttp import web
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -77,12 +78,30 @@ async def main():
 
     logger.info("Бот запущен и опрашивает сервер Telegram...")
 
-    async with application:
-       await application.start()
-       await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-       # Бот будет работать, пока его не остановят. 
-       # Когда придёт сигнал остановки, он завершится без ошибки.
+    stop_event = asyncio.Event()
 
+# Чтобы можно было остановить бота сочетанием Ctrl+C (SIGINT) или командой kill (SIGTERM)
+loop = asyncio.get_running_loop()
+for sig in (signal.SIGINT, signal.SIGTERM):
+    try:
+        loop.add_signal_handler(sig, stop_event.set)
+    except NotImplementedError:
+        # В Windows этот метод не работает — там сработает KeyboardInterrupt ниже
+        pass
+
+async with application:
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("Бот запущен и работает. Нажмите Ctrl+C для остановки.")
+    try:
+        await stop_event.wait()
+    except KeyboardInterrupt:
+        pass
+
+    # Корректная остановка
+    await application.updater.stop()
+    await application.stop()
+    logger.info("Бот остановлен.")
 
 if __name__ == "__main__":
     asyncio.run(main())
