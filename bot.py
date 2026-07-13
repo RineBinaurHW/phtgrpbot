@@ -81,7 +81,7 @@ async def main():
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         try:
             while True:
-                await asyncio.sleep(3600)
+                await asyncio.sleep(600)
         except (KeyboardInterrupt, SystemExit):
             pass
 
