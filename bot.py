@@ -60,48 +60,45 @@ async def handle_health(request):
     """Отвечает на проверки Render, возвращая 200 OK."""
     return web.Response(text="Бот жив и работает!")
 
-# --- Основной запуск ---
-async def main():
+    
+            async def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
     if not token:
-        logger.error("ОШИБКА: TELEGRAM_BOT_TOKEN НЕ НАЙДЕН В ENVIRONMENT!")
+        logger.error("ОШИБКА: TELEGRAM_BOT_TOKEN НЕ НАЙДЕН!")
         sys.exit(1)
 
-    # 1. Запускаем фейковый HTTP-сервер на порту из Render
+    # HTTP-сервер для Render
     port = int(os.environ.get("PORT", 8000))
     app = web.Application()
-    app.router.add_get("/", handle_health)  # Можно добавить /health тоже
+    app.router.add_get("/", handle_health)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logger.info(f"HTTP-заглушка запущена на порту {port}")
 
-    # 2. Запускаем самого бота
+    # Бот
     application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("try", try_command))
-
-    # Глобальный обработчик ошибок, чтобы бот не падал
-    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-        logger.error("Ошибка при обработке:", exc_info=context.error)
-
     application.add_error_handler(error_handler)
 
     logger.info("Бот запущен и опрашивает сервер Telegram...")
     
-    # Запуск поллинга с авторестартом при обрыве
-    await application.initialize()
-    await application.start()
-    
-    while True:
+    # НОВЫЙ ПРАВИЛЬНЫЙ ЗАПУСК (без idle и без двойного старта)
+    async with application:
+        await application.start()
+        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        
         try:
-            await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-            await application.updater.idle()
-        except Exception as e:
-            logger.critical(f"Сбой поллинга: {e}. Перезапуск через 10 сек...")
-            await asyncio.sleep(10)
-
+            while True:
+                await asyncio.sleep(3600)  # Спим час
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            await application.updater.stop()
+            await application.stop()
+            
 if __name__ == "__main__":
     asyncio.run(main())
