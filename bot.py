@@ -2,8 +2,6 @@ import os
 import sys
 import random
 import logging
-import asyncio
-import signal
 from aiohttp import web
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -52,59 +50,48 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Ошибка: {context.error}")
 
+# Хэндлер для проверки работоспособности (Health Check) от Render
 async def handle_health(request):
-    return web.Response(text="Бот жив и работает!")
+    return web.Response(text="Бот жив и работает через вебхуки!")
 
-async def main():
+def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    # URL вашего приложения на Render (например, https://onrender.com)
+    # Render автоматически передает его в переменную RENDER_EXTERNAL_URL
+    app_url = os.environ.get("RENDER_EXTERNAL_URL") 
+    port = int(os.environ.get("PORT", 8000))
+
     if not token:
         logger.error("ТОКЕН НЕ НАЙДЕН!")
         sys.exit(1)
+        
+    if not app_url:
+        logger.error("RENDER_EXTERNAL_URL НЕ НАЙДЕН! Убедитесь, что бот запущен на Render.")
+        sys.exit(1)
 
-    # HTTP-сервер
-    port = int(os.environ.get("PORT", 8000))
-    app = web.Application()
-    app.router.add_get("/", handle_health)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", port).start()
-    logger.info(f"HTTP на порту {port}")
-
-    # Бот
+    # Инициализируем бота
     application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("try", try_command))
     application.add_error_handler(error_handler)
 
-    logger.info("Бот запущен и опрашивает сервер Telegram...")
+    # Создаем aiohttp приложение
+    app = web.Application()
+    
+    # Главная страница для Render Health Check
+    app.router.add_get("/", handle_health)
 
-    stop_event = asyncio.Event()
-
-    # Чтобы можно было остановить бота сочетанием Ctrl+C (SIGINT) или командой kill (SIGTERM)
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop_event.set)
-        except NotImplementedError:
-            # В Windows этот метод не работает — там сработает KeyboardInterrupt ниже
-            pass
-
-    # ЗДЕСЬ ИСПРАВЛЕНО: Теперь этот блок находится ВНУТРИ функции main()
-    async with application:
-        await application.start()
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-        logger.info("Бот запущен и работает. Ожидание сигнала остановки...")
-        try:
-            await stop_event.wait()
-        except KeyboardInterrupt:
-            pass
-
-        # Корректная остановка
-        logger.info("Завершение работы...")
-        await application.updater.stop()
-        await application.stop()
-        await runner.cleanup()  # Освобождаем порт aiohttp
-        logger.info("Бот остановлен.")
+    # Интегрируем вебхуки telegram прямо в наше aiohttp приложение
+    # Бот будет слушать секретный путь /telegram_webhook
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path="telegram_webhook",
+        webhook_url=f"{app_url}/telegram_webhook",
+        allowed_updates=Update.ALL_TYPES,
+        secret_token="SuperSecretToken123", # Защита от левых запросов
+        app=app # Передаем наше aiohttp приложение
+    )
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
