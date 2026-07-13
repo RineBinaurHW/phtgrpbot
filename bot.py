@@ -81,11 +81,5 @@ async def main():
         await application.start()
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
 
-        try:
-            while True:
-                await asyncio.sleep(60)
-        except (KeyboardInterrupt, SystemExit):
-            pass
-
 if __name__ == "__main__":
     asyncio.run(main())
