@@ -77,18 +77,15 @@ async def main():
 
     logger.info("Бот запущен и опрашивает сервер Telegram...")
 
-# ЗАКЛИНАНИЕ ОТ КОНФЛИКТА: убиваем старые вебхуки перед стартом
-await application.bot.delete_webhook(drop_pending_updates=True)
-logger.info("Старые вебхуки сброшены, конфликт исключён!")
-
 async with application:
     await application.start()
     await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-        try:
-            while True:
-                await asyncio.sleep(300)
-        except (KeyboardInterrupt, SystemExit):
-            pass
+
+    try:                              # <--- Убрал лишний отступ!
+        while True:
+            await asyncio.sleep(60)
+    except (KeyboardInterrupt, SystemExit):
+        pass
 
 if __name__ == "__main__":
     asyncio.run(main())
