@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Обработчики команд (без изменений) ---
+# --- Обработчики команд ---
 async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     name = user.first_name if user.first_name else "Пользователь"
@@ -55,12 +55,17 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except BadRequest:
         await update.message.reply_text(res.replace('*', ''))
 
+# --- Глобальный обработчик ошибок ---
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.error("Ошибка при обработке:", exc_info=context.error)
+
 # --- Заглушка для HTTP, чтобы Render не убивал ---
 async def handle_health(request):
     """Отвечает на проверки Render, возвращая 200 OK."""
     return web.Response(text="Бот жив и работает!")
-    
-        async def main():
+
+# --- Основной запуск ---
+async def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
     if not token:
@@ -81,23 +86,22 @@ async def handle_health(request):
     application = Application.builder().token(token).build()
     application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("try", try_command))
-    application.add_error_handler(error_handler)
+    application.add_error_handler(error_handler)  # ← теперь error_handler существует
 
     logger.info("Бот запущен и опрашивает сервер Telegram...")
     
-    # НОВЫЙ ПРАВИЛЬНЫЙ ЗАПУСК (без idle и без двойного старта)
     async with application:
         await application.start()
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         
         try:
             while True:
-                await asyncio.sleep(3600)  # Спим час
+                await asyncio.sleep(3600)
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
             await application.updater.stop()
             await application.stop()
-            
+
 if __name__ == "__main__":
     asyncio.run(main())
