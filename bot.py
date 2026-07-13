@@ -59,9 +59,8 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def handle_health(request):
     """Отвечает на проверки Render, возвращая 200 OK."""
     return web.Response(text="Бот жив и работает!")
-
     
-            async def main():
+        async def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
     if not token:
