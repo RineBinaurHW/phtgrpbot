@@ -46,37 +46,44 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(plain_text)
 
 
-# 👇 НОВАЯ ФУНКЦИЯ /try ВСТАВЛЕНА СЮДА
 async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /try [сложность]"""
+    """Обработчик команды /try [сложность] [действие]"""
     args = context.args
     
-    # Если сложность не указана, ставим дефолт 50
+    # Если ничего не написано
     if not args:
-        chance = 50
-    else:
-        try:
-            chance = int(args[0])
-            if chance < 1 or chance > 100:
-                await update.message.reply_text("Сложность должна быть от 1 до 100!")
-                return
-        except ValueError:
-            await update.message.reply_text("Напиши число после /try. Пример: /try 75")
-            return
+        await update.message.reply_text("Используй: /try <сложность> <действие>\nПример: /try 75 понюхать руку")
+        return
 
-    # Кидаем кубик от 1 до 100
+    # Пытаемся достать сложность (первое слово)
+    try:
+        chance = int(args[0])
+        if chance < 1 or chance > 100:
+            await update.message.reply_text("Сложность должна быть от 1 до 100!")
+            return
+    except ValueError:
+        await update.message.reply_text("Первым параметром должно быть число. Пример: /try 75 понюхать руку")
+        return
+
+    # Собираем ВСЁ остальное как описание действия
+    action_text = ' '.join(args[1:]) 
+    
+    # Кидаем кубик
     roll = random.randint(1, 100)
     user = update.effective_user.first_name
     
-    # Логика: 10% крит успех, 40% успех, 40% неудача, 10% крит провал
+    # Формируем базовую часть сообщения
+    base_msg = f"*{user}* попытался ({chance}%) {action_text}. Выпало {roll}."
+    
+    # Добавляем результат в зависимости от выпавшего числа
     if roll <= 10:
-        result_text = f"🔥 *{user}* попытался ({chance}%). Выпало {roll}. 🌟 ПОЛНЫЙ УСПЕХ!"
+        result_text = f"🔥 {base_msg} 🌟 ПОЛНЫЙ УСПЕХ!"
     elif roll <= 50:
-        result_text = f"✅ *{user}* попытался ({chance}%). Выпало {roll}. Успех!"
+        result_text = f"✅ {base_msg} Успех!"
     elif roll <= 90:
-        result_text = f"❌ *{user}* попытался ({chance}%). Выпало {roll}. Неудача..."
+        result_text = f"❌ {base_msg} Неудача..."
     else:
-        result_text = f"💀 *{user}* попытался ({chance}%). Выпало {roll}.  ПОЛНЫЙ ПРОВАЛ!"
+        result_text = f"💀 {base_msg} 💀 ПОЛНЫЙ ПРОВАЛ!"
     
     try:
         await update.message.reply_text(result_text, parse_mode='Markdown')
