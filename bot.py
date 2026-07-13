@@ -46,7 +46,7 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(plain_text)
 
 
-ge.rasync def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /try <действие> (механика d20)"""
     args = context.args
     
