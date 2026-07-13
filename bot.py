@@ -75,13 +75,18 @@ async def main():
     application.add_handler(CommandHandler("try", try_command))
     application.add_error_handler(error_handler)
 
-    logger.info("Бот запущен")
-    async with application:
-        await application.start()
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("Бот запущен и опрашивает сервер Telegram...")
+
+# ЗАКЛИНАНИЕ ОТ КОНФЛИКТА: убиваем старые вебхуки перед стартом
+await application.bot.delete_webhook(drop_pending_updates=True)
+logger.info("Старые вебхуки сброшены, конфликт исключён!")
+
+async with application:
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         try:
             while True:
-                await asyncio.sleep(600)
+                await asyncio.sleep(300)
         except (KeyboardInterrupt, SystemExit):
             pass
 
