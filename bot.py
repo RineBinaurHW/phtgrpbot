@@ -1,98 +1,72 @@
 import os
+import random
 import logging
-import random  # <-- ДОБАВЛЕНО
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.error import BadRequest
 
-# Включаем логирование
+# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-
 async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Обработчик команды /me <действие>.
-    """
     user = update.effective_user
-    user_first_name = user.first_name if user.first_name else "Пользователь"
-
-    # Собираем действие из аргументов команды
+    name = user.first_name if user.first_name else "Пользователь"
     action = ' '.join(context.args).strip()
-
+    
     if not action:
-        await update.message.reply_text(
-            "Пожалуйста, укажите действие после команды /me.\n"
-            "Например: /me пьёт кофе"
-        )
+        await update.message.reply_text("Напиши действие. Пример: /me покакал")
         return
-
-    # Формируем строку: *Имя* действие
-    formatted_text = f"*{user_first_name}* {action}"
-
+        
+    text = f"*{name}* {action}"
     try:
-        # Пробуем отправить с форматированием Markdown
-        await update.message.reply_text(formatted_text, parse_mode='Markdown')
-    except BadRequest as e:
-        # Если в имени есть символы, ломающие Markdown, отправляем без форматирования
-        logger.warning(
-            "Markdown parsing failed for user '%s'. Sending plain text. Error: %s",
-            user_first_name, e
-        )
-        plain_text = f"{user_first_name} {action}"
-        await update.message.reply_text(plain_text)
-
+        await update.message.reply_text(text, parse_mode='Markdown')
+    except BadRequest:
+        await update.message.reply_text(text.replace('*', ''))
 
 async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /try <действие> (механика d20)"""
     args = context.args
-    
     if not args:
         await update.message.reply_text("Используй: /try <действие>\nПример: /try заколоть всех")
         return
 
-    # Собираем весь текст как действие
     action_text = ' '.join(args).strip()
-    
-    # Кидаем d20 (кубик от 1 до 20)
     roll = random.randint(1, 20)
     user = update.effective_user.first_name
     
-    # D&D логика: 1=крит провал, 2-10=провал, 11-18=успех, 19-20=крит успех
     if roll == 1:
-        result_text = f"💀 *{user}* {action_text}. 🩸 КРИТИЧЕСКИЙ ПРОВАЛ!"
+        res = f"💀 *{user}* {action_text}. 🩸 КРИТИЧЕСКИЙ ПРОВАЛ!"
     elif roll <= 10:
-        result_text = f"❌ *{user}* {action_text}. Провал."
+        res = f"❌ *{user}* {action_text}. Провал."
     elif roll <= 18:
-        result_text = f"✅ *{user}* {action_text}. Успех."
-    else:  # 19 или 20
-        result_text = f"🔥 *{user}* {action_text}. 🌟 КРИТИЧЕСКИЙ УСПЕХ!"
+        res = f"✅ *{user}* {action_text}. Успех."
+    else:
+        res = f"🔥 *{user}* {action_text}. 🌟 КРИТИЧЕСКИЙ УСПЕХ!"
     
     try:
-        await update.message.reply_text(result_text, parse_mode='Markdown')
+        await update.message.reply_text(res, parse_mode='Markdown')
     except BadRequest:
-        await update.message.reply_text(result_text.replace('*', ''))
-
+        await update.message.reply_text(res.replace('*', ''))
 
 def main() -> None:
-    """Точка входа: создаёт и запускает бота."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        logger.error("Переменная окружения TELEGRAM_BOT_TOKEN не установлена!")
-        return
-
-    application = Application.builder().token(token).build()
-    application.add_handler(CommandHandler("me", me_command))
     
-    # 👇 ДОБАВЛЕНА РЕГИСТРАЦИЯ НОВОЙ КОМАНДЫ /try
+    # ЖЕСТКАЯ ПРОВЕРКА ТОКЕНА
+    if not token:
+        logger.error("ОШИБКА: TELEGRAM_BOT_TOKEN НЕ НАЙДЕН В ENVIRONMENT!")
+        return 
+
+    logger.info("Запуск приложения...")
+    application = Application.builder().token(token).build()
+    
+    application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("try", try_command))
-
-    logger.info("Бот запущен. Ожидание команд /me и /try ...")
+    
+    logger.info("БОТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 if __name__ == "__main__":
     main()
