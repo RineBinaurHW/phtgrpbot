@@ -64,7 +64,10 @@ async def handle_health(request):
     """Отвечает на проверки Render, возвращая 200 OK."""
     return web.Response(text="Бот жив и работает!")
 
-# --- Основной запуск ---
+    # --- Глобальный обработчик ошибок ---
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.error("Ошибка при обработке:", exc_info=context.error)
+    
 async def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
