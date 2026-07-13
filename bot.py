@@ -2,6 +2,8 @@ import os
 import sys
 import random
 import logging
+import asyncio
+from aiohttp import web
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.error import BadRequest
@@ -13,6 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# --- Обработчики команд (без изменений) ---
 async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     name = user.first_name if user.first_name else "Пользователь"
@@ -52,21 +55,53 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except BadRequest:
         await update.message.reply_text(res.replace('*', ''))
 
-def main() -> None:
+# --- Заглушка для HTTP, чтобы Render не убивал ---
+async def handle_health(request):
+    """Отвечает на проверки Render, возвращая 200 OK."""
+    return web.Response(text="Бот жив и работает!")
+
+# --- Основной запуск ---
+async def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     
     if not token:
         logger.error("ОШИБКА: TELEGRAM_BOT_TOKEN НЕ НАЙДЕН В ENVIRONMENT!")
-        sys.exit(1)  # <-- ИСПРАВЛЕНО: теперь процесс умирает корректно
+        sys.exit(1)
 
-    logger.info("Запуск приложения...")
+    # 1. Запускаем фейковый HTTP-сервер на порту из Render
+    port = int(os.environ.get("PORT", 8000))
+    app = web.Application()
+    app.router.add_get("/", handle_health)  # Можно добавить /health тоже
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info(f"HTTP-заглушка запущена на порту {port}")
+
+    # 2. Запускаем самого бота
     application = Application.builder().token(token).build()
-    
     application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("try", try_command))
+
+    # Глобальный обработчик ошибок, чтобы бот не падал
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+        logger.error("Ошибка при обработке:", exc_info=context.error)
+
+    application.add_error_handler(error_handler)
+
+    logger.info("Бот запущен и опрашивает сервер Telegram...")
     
-    logger.info("БОТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Запуск поллинга с авторестартом при обрыве
+    await application.initialize()
+    await application.start()
+    
+    while True:
+        try:
+            await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+            await application.updater.idle()
+        except Exception as e:
+            logger.critical(f"Сбой поллинга: {e}. Перезапуск через 10 сек...")
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
