@@ -80,14 +80,15 @@ async def main():
 
     stop_event = asyncio.Event()
 
-# Чтобы можно было остановить бота сочетанием Ctrl+C (SIGINT) или командой kill (SIGTERM)
-loop = asyncio.get_running_loop()
-for sig in (signal.SIGINT, signal.SIGTERM):
-    try:
-        loop.add_signal_handler(sig, stop_event.set)
-    except NotImplementedError:
-        # В Windows этот метод не работает — там сработает KeyboardInterrupt ниже
-        pass
+    # Чтобы можно было остановить бота сочетанием Ctrl+C (SIGINT) или командой kill (SIGTERM)
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:  # Добавлен отступ
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:  # Добавлен отступ
+            # В Windows этот метод не работает — там сработает KeyboardInterrupt ниже
+            pass
+
 
 async with application:
     await application.start()
