@@ -68,5 +68,5 @@ def main() -> None:
     logger.info("БОТ ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
-if name == "__main__":
+if __name__ == "__main__":
     main()
