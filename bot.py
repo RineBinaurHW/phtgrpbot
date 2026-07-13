@@ -46,56 +46,30 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(plain_text)
 
 
-async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /try [сложность] [действие]"""
+ge.rasync def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /try <действие> (механика d20)"""
     args = context.args
     
     if not args:
-        await update.message.reply_text(
-            "Используй: /try [сложность] <действие>\n"
-            "Примеры:\n"
-            "/try 75 понюхать руку\n"
-            "/try украсть кошелек (по умолчанию 50%)"
-        )
+        await update.message.reply_text("Используй: /try <действие>\nПример: /try заколоть всех")
         return
 
-    # Определяем сложность и начало текста действия
-    chance = 50  # Дефолтное значение
-    action_start_index = 0
+    # Собираем весь текст как действие
+    action_text = ' '.join(args).strip()
     
-    # Проверяем, является ли первое слово числом от 1 до 100
-    try:
-        potential_chance = int(args[0])
-        if 1 <= potential_chance <= 100:
-            chance = potential_chance
-            action_start_index = 1  # Текст начинается со второго слова
-        # Если число вне диапазона — считаем его частью текста действия
-    except ValueError:
-        # Первое слово не число → вся строка является действием, сложность = 50%
-        pass  
-
-    # Собираем текст действия
-    action_text = ' '.join(args[action_start_index:])
-    
-    if not action_text.strip():
-        await update.message.reply_text(f"Укажи действие! Пример: /try {chance} понюхать руку")
-        return
-
-    # Кидаем кубик
-    roll = random.randint(1, 100)
+    # Кидаем d20 (кубик от 1 до 20)
+    roll = random.randint(1, 20)
     user = update.effective_user.first_name
     
-    # Формируем сообщение
-    base_msg = f"*{user}* попытался ({chance}%) {action_text}. Выпало {roll}."
-    
-    if roll <= 10:
-        result_text = f" {base_msg} 🌟 ПОЛНЫЙ УСПЕХ!"
-    elif roll <= 50:
-        result_text = f"✅ {base_msg} Успех!"
-    elif roll <= 90:
-        result_text = f"❌ {base_msg} Неудача..."
-    else:
-        result_text = f"💀 {base_msg} 💀 ПОЛНЫЙ ПРОВАЛ!"
+    # D&D логика: 1=крит провал, 2-10=провал, 11-18=успех, 19-20=крит успех
+    if roll == 1:
+        result_text = f"💀 *{user}* {action_text}. 🩸 КРИТИЧЕСКИЙ ПРОВАЛ!"
+    elif roll <= 10:
+        result_text = f"❌ *{user}* {action_text}. Провал."
+    elif roll <= 18:
+        result_text = f"✅ *{user}* {action_text}. Успех."
+    else:  # 19 или 20
+        result_text = f"🔥 *{user}* {action_text}. 🌟 КРИТИЧЕСКИЙ УСПЕХ!"
     
     try:
         await update.message.reply_text(result_text, parse_mode='Markdown')
