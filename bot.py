@@ -50,34 +50,46 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """Обработчик команды /try [сложность] [действие]"""
     args = context.args
     
-    # Если ничего не написано
     if not args:
-        await update.message.reply_text("Используй: /try <сложность> <действие>\nПример: /try 75 понюхать руку")
+        await update.message.reply_text(
+            "Используй: /try [сложность] <действие>\n"
+            "Примеры:\n"
+            "/try 75 понюхать руку\n"
+            "/try украсть кошелек (по умолчанию 50%)"
+        )
         return
 
-    # Пытаемся достать сложность (первое слово)
-    try:
-        chance = int(args[0])
-        if chance < 1 or chance > 100:
-            await update.message.reply_text("Сложность должна быть от 1 до 100!")
-            return
-    except ValueError:
-        await update.message.reply_text("Первым параметром должно быть число. Пример: /try 75 понюхать руку")
-        return
-
-    # Собираем ВСЁ остальное как описание действия
-    action_text = ' '.join(args[1:]) 
+    # Определяем сложность и начало текста действия
+    chance = 50  # Дефолтное значение
+    action_start_index = 0
     
+    # Проверяем, является ли первое слово числом от 1 до 100
+    try:
+        potential_chance = int(args[0])
+        if 1 <= potential_chance <= 100:
+            chance = potential_chance
+            action_start_index = 1  # Текст начинается со второго слова
+        # Если число вне диапазона — считаем его частью текста действия
+    except ValueError:
+        # Первое слово не число → вся строка является действием, сложность = 50%
+        pass  
+
+    # Собираем текст действия
+    action_text = ' '.join(args[action_start_index:])
+    
+    if not action_text.strip():
+        await update.message.reply_text(f"Укажи действие! Пример: /try {chance} понюхать руку")
+        return
+
     # Кидаем кубик
     roll = random.randint(1, 100)
     user = update.effective_user.first_name
     
-    # Формируем базовую часть сообщения
+    # Формируем сообщение
     base_msg = f"*{user}* попытался ({chance}%) {action_text}. Выпало {roll}."
     
-    # Добавляем результат в зависимости от выпавшего числа
     if roll <= 10:
-        result_text = f"🔥 {base_msg} 🌟 ПОЛНЫЙ УСПЕХ!"
+        result_text = f" {base_msg} 🌟 ПОЛНЫЙ УСПЕХ!"
     elif roll <= 50:
         result_text = f"✅ {base_msg} Успех!"
     elif roll <= 90:
