@@ -24,15 +24,30 @@ def get_name(update: Update) -> str:
     """Получить имя пользователя"""
     return update.effective_user.first_name or "Пользователь"
 
-async def send_safe(update: Update, text: str) -> None:
-    """Отправить сообщение с безопасным парсингом Markdown"""
+async def send_safe(update: Update, text: str, delete_command: bool = False) -> None:
+    """Отправляет сообщение и опционально удаляет команду пользователя."""
     try:
+        # Сначала отправляем ответ
         await update.message.reply_text(text, parse_mode='Markdown')
+        
+        # Если нужно удалить команду - пробуем
+        if delete_command:
+            try:
+                await update.message.delete()
+            except BadRequest:
+                pass  # Нет прав или уже удалено - просто игнорируем
+                    
     except BadRequest:
+        # Fallback без Markdown
         await update.message.reply_text(text.replace('*', ''))
+        if delete_command:
+            try:
+                await update.message.delete()
+            except BadRequest:
+                pass
     except (TimedOut, NetworkError) as e:
         logger.error(f"Ошибка отправки: {e}")
-
+        
 async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /me - отвечает на любые сообщения"""
     action = ' '.join(context.args).strip()
@@ -42,8 +57,8 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             "Пример: /me покакал"
         )
         return
-    
-    await send_safe(update, f"*{get_name(update)}* {action}")
+      
+    await send_safe(update, f"*{get_name(update)}* {action}", delete_command=True)
 
 async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /try - без ограничений по времени"""
@@ -69,7 +84,7 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         emoji, status = "🔥🌟", "КРИТИЧЕСКИЙ УСПЕХ!"
     
     result = f"{emoji} *{user}* {action}. {status}"
-    await send_safe(update, result)
+    await send_safe(update, result, delete_command=True)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /start"""
