@@ -32,10 +32,9 @@ async def send_safe(update: Update, text: str) -> None:
         await update.message.reply_text(text.replace('*', ''))
     except (TimedOut, NetworkError) as e:
         logger.error(f"Ошибка отправки: {e}")
-        await update.message.reply_text("⚠️ Ошибка связи, попробуйте позже")
 
 async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /me"""
+    """Обработчик команды /me - отвечает на любые сообщения"""
     action = ' '.join(context.args).strip()
     if not action:
         await update.message.reply_text(
@@ -47,7 +46,7 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await send_safe(update, f"*{get_name(update)}* {action}")
 
 async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /try с бросанием кубика d20"""
+    """Обработчик команды /try - без ограничений по времени"""
     args = context.args
     if not args:
         await update.message.reply_text(
@@ -61,7 +60,7 @@ async def try_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user = get_name(update)
     
     if roll == 1:
-        emoji, status = "💀🩸", "КРИТИЧЕСКИЙ ПРОВАЛ!"
+        emoji, status = "🩸", "КРИТИЧЕСКИЙ ПРОВАЛ!"
     elif roll <= 10:
         emoji, status = "❌", "Провал."
     elif roll <= 18:
@@ -95,7 +94,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "  • 1 - критический провал 💀\n"
         "  • 2-10 - провал ❌\n"
         "  • 11-18 - успех ✅\n"
-        "  • 19-20 - критический успех 🔥🌟\n"
+        "  • 19-20 - критический успех 🌟\n"
         "  Пример: /try взломать дверь\n\n"
         "/help - показать эту справку\n"
         "/start - приветствие",
@@ -113,7 +112,7 @@ async def health_check(request) -> web.Response:
 async def keep_alive():
     """Держит бота активным, чтобы Render не усыплял"""
     while True:
-        await asyncio.sleep(600)  # 10 минут
+        await asyncio.sleep(600)
         logger.info("🏓 Пинг...")
 
 async def main() -> None:
@@ -141,7 +140,7 @@ async def main() -> None:
     application.add_handler(CommandHandler("try", try_command))
     application.add_error_handler(error_handler)
     
-    logger.info("🤖 Бот запускается...")
+    logger.info(" Бот запускается...")
     
     # Обработка сигналов остановки
     stop_event = asyncio.Event()
@@ -152,16 +151,19 @@ async def main() -> None:
         except NotImplementedError:
             pass
     
-    # 👇👇👇 ГЛАВНОЕ: используем run_polling() как в старой версии 👇👇👇
+    # Запуск поллинга с ЯВНЫМ списком обновлений (критично для работы без админки!)
     await application.initialize()
     await application.start()
     await application.updater.start_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=False  # ← Обрабатывать все накопившиеся сообщения
+        allowed_updates=[
+            Update.MESSAGE,
+            Update.EDITED_MESSAGE,
+            Update.CALLBACK_QUERY
+        ]
     )
     logger.info("✅ Бот успешно запущен и работает!")
     
-    # Запускаем пинг
+    # Запускаем пинг параллельно
     asyncio.create_task(keep_alive())
     
     # Ждем сигнала остановки
